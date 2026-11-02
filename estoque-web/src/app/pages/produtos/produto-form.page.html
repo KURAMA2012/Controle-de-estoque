@@ -1,0 +1,240 @@
+<div class="cabecalho-pagina">
+  <div>
+    <h1>{{ salvo() ? 'Editar produto #' + idItem() : 'Novo produto' }}</h1>
+    <p class="sub">{{ salvo() ? form().nome : 'Preencha o cadastro e salve para liberar imagens e especificações.' }}</p>
+  </div>
+  <a class="btn btn-secundario" routerLink="/produtos">Voltar para produtos</a>
+</div>
+
+<div class="abas" role="tablist">
+  <button type="button" role="tab" data-aba="cadastro" [class.ativo]="aba() === 'cadastro'" [attr.aria-selected]="aba() === 'cadastro'" (click)="aba.set('cadastro')">Cadastro</button>
+  <button type="button" role="tab" data-aba="imagens" [class.ativo]="aba() === 'imagens'" [attr.aria-selected]="aba() === 'imagens'" [disabled]="!salvo()" [title]="salvo() ? '' : 'Salve o produto primeiro'" (click)="aba.set('imagens')">Imagens @if (salvo()) { ({{ imagens().length }}/{{ limite }}) }</button>
+  <button type="button" role="tab" data-aba="especificacoes" [class.ativo]="aba() === 'especificacoes'" [attr.aria-selected]="aba() === 'especificacoes'" [disabled]="!salvo()" [title]="salvo() ? '' : 'Salve o produto primeiro'" (click)="aba.set('especificacoes')">Especificações</button>
+</div>
+
+@if (carregando()) {
+  <div class="cartao"><div class="lista-carregando" aria-busy="true"><div class="skeleton-linha"><span class="skeleton" style="width: 60%"></span></div></div></div>
+} @else if (erroCarga()) {
+  <div class="cartao estado-vazio"><app-icone nome="alerta" [tamanho]="36" /><h3>Erro</h3><p>{{ erroCarga() }}</p></div>
+} @else {
+  @switch (aba()) {
+    @case ('cadastro') {
+  <div class="cartao">
+    <h3 class="form-secao">Identificação</h3>
+    <div class="form-grade">
+      <label class="campo largo" [class.invalido]="erro('nome')"><span>Nome *</span>
+        <input class="campo-input" type="text" data-campo="nome" [ngModel]="form().nome" (ngModelChange)="set('nome', texto($event))" placeholder="Ex.: Camiseta básica" maxlength="255" />
+        @if (erro('nome'); as m) { <small class="msg-erro">{{ m }}</small> }
+      </label>
+      <label class="campo " [class.invalido]="erro('codigoBarras')"><span>Código de barras / SKU</span>
+        <input class="campo-input" type="text" data-campo="codigoBarras" [ngModel]="form().codigoBarras" (ngModelChange)="set('codigoBarras', texto($event))" placeholder="EAN, SKU..." />
+        @if (erro('codigoBarras'); as m) { <small class="msg-erro">{{ m }}</small> }
+      </label>
+      <label class="campo " [class.invalido]="erro('codigoFornecedor')"><span>Código do fornecedor</span>
+        <input class="campo-input" type="text" data-campo="codigoFornecedor" [ngModel]="form().codigoFornecedor" (ngModelChange)="set('codigoFornecedor', texto($event))" placeholder="" />
+        @if (erro('codigoFornecedor'); as m) { <small class="msg-erro">{{ m }}</small> }
+      </label>
+      <label class="campo " [class.invalido]="erro('icone')"><span>Ícone</span>
+        <input class="campo-input" type="text" data-campo="icone" [ngModel]="form().icone" (ngModelChange)="set('icone', texto($event))" placeholder="Nome do ícone (opcional)" />
+        @if (erro('icone'); as m) { <small class="msg-erro">{{ m }}</small> }
+      </label>
+      <label class="campo"><span>Data de validade</span>
+        <input class="campo-input" type="date" data-campo="dataValidade" [ngModel]="form().dataValidade" (ngModelChange)="set('dataValidade', $event || null)" />
+      </label>
+      <label class="campo largo"><span>Descrição</span>
+        <textarea data-campo="descricao" [ngModel]="form().descricao" (ngModelChange)="set('descricao', texto($event))" rows="3"></textarea>
+      </label>
+      <label class="linha-switch"><span class="switch"><input type="checkbox" data-campo="ativo" [ngModel]="form().ativo" (ngModelChange)="set('ativo', $event)" /><span></span></span>Ativo</label>
+    </div>
+    <h3 class="form-secao">Classificação</h3>
+    <div class="form-grade">
+      <label class="campo"><span>Unidade</span>
+        <select class="select" data-campo="idUnidade" [ngModel]="form().idUnidade" (ngModelChange)="set('idUnidade', $event)" >
+          <option [ngValue]="null">— Nenhum(a) —</option>
+          @for (o of unidades(); track o.id) { <option [ngValue]="o.id">{{ o.descricao }}</option> }
+        </select>
+      </label>
+      <label class="campo"><span>Categoria</span>
+        <select class="select" data-campo="idCategoria" [ngModel]="form().idCategoria" (ngModelChange)="set('idCategoria', $event)" >
+          <option [ngValue]="null">— Nenhum(a) —</option>
+          @for (o of categorias(); track o.id) { <option [ngValue]="o.id">{{ o.descricao }}</option> }
+        </select>
+      </label>
+      <label class="campo"><span>Marca</span>
+        <select class="select" data-campo="idMarca" [ngModel]="form().idMarca" (ngModelChange)="trocarMarca($event)" >
+          <option [ngValue]="null">— Nenhum(a) —</option>
+          @for (o of marcas(); track o.id) { <option [ngValue]="o.id">{{ o.descricao }}</option> }
+        </select>
+      </label>
+      <label class="campo"><span>Modelo</span>
+        <select class="select" data-campo="idModelo" [ngModel]="form().idModelo" (ngModelChange)="set('idModelo', $event)" [disabled]="form().idMarca == null">
+          <option [ngValue]="null">— Nenhum(a) —</option>
+          @for (o of modelos(); track o.id) { <option [ngValue]="o.id">{{ o.descricao }}</option> }
+        </select>
+        @if (form().idMarca == null) { <small class="texto-suave">Selecione a marca primeiro.</small> }
+      </label>
+      <div class="campo largo"><span>Cores</span>
+        <div class="chips-sel" role="group" [attr.aria-label]="'Cores'">
+          @for (o of cores(); track o.id) {
+            <button type="button" class="chip-sel" [class.ativo]="form().idsCores.includes(o.id)" [attr.aria-pressed]="form().idsCores.includes(o.id)" (click)="alternarChip('idsCores', o.id)">{{ o.descricao }}</button>
+          } @empty { <small class="texto-suave">Nenhum(a) cadastrado(a).</small> }
+        </div>
+      </div>
+      <div class="campo largo"><span>Tamanhos</span>
+        <div class="chips-sel" role="group" [attr.aria-label]="'Tamanhos'">
+          @for (o of tamanhos(); track o.id) {
+            <button type="button" class="chip-sel" [class.ativo]="form().idsTamanhos.includes(o.id)" [attr.aria-pressed]="form().idsTamanhos.includes(o.id)" (click)="alternarChip('idsTamanhos', o.id)">{{ o.descricao }}</button>
+          } @empty { <small class="texto-suave">Nenhum(a) cadastrado(a).</small> }
+        </div>
+      </div>
+    </div>
+    <h3 class="form-secao">Preços</h3>
+    <div class="form-grade">
+      <label class="campo" [class.invalido]="erro('valorCusto')"><span>Custo (R$)</span>
+        <input class="campo-input" type="number" min="0" step="0.01" data-campo="valorCusto" [ngModel]="form().valorCusto" (ngModelChange)="set('valorCusto', num($event))" placeholder="" />
+        @if (erro('valorCusto'); as m) { <small class="msg-erro">{{ m }}</small> }
+      </label>
+      <label class="campo" [class.invalido]="erro('margemLucro')"><span>Margem de lucro (%)</span>
+        <input class="campo-input" type="number" min="0" step="0.01" data-campo="margemLucro" [ngModel]="form().margemLucro" (ngModelChange)="set('margemLucro', num($event))" placeholder="" />
+        @if (erro('margemLucro'); as m) { <small class="msg-erro">{{ m }}</small> }
+      </label>
+      <label class="campo" [class.invalido]="erro('valorVenda')"><span>Preço de venda (R$)</span>
+        <input class="campo-input" type="number" min="0" step="0.01" data-campo="valorVenda" [ngModel]="form().valorVenda" (ngModelChange)="set('valorVenda', num($event))" placeholder="" />
+        @if (erro('valorVenda'); as m) { <small class="msg-erro">{{ m }}</small> }
+      </label>
+      <label class="campo" [class.invalido]="erro('precoAntigo')"><span>Preço antigo (R$)</span>
+        <input class="campo-input" type="number" min="0" step="0.01" data-campo="precoAntigo" [ngModel]="form().precoAntigo" (ngModelChange)="set('precoAntigo', num($event))" placeholder="" />
+        @if (erro('precoAntigo'); as m) { <small class="msg-erro">{{ m }}</small> }
+      </label>
+      <label class="campo" [class.invalido]="erro('maxParcelas')"><span>Máx. parcelas</span>
+        <input class="campo-input" type="number" min="0" step="1" data-campo="maxParcelas" [ngModel]="form().maxParcelas" (ngModelChange)="set('maxParcelas', num($event))" placeholder="" />
+        @if (erro('maxParcelas'); as m) { <small class="msg-erro">{{ m }}</small> }
+      </label>
+    </div>
+    <h3 class="form-secao">Estoque</h3>
+    <div class="form-grade">
+      <label class="campo" [class.invalido]="erro('quantidadeEstoqueAtual')"><span>Estoque atual</span>
+        <input class="campo-input" type="number" min="0" step="1" data-campo="quantidadeEstoqueAtual" [ngModel]="form().quantidadeEstoqueAtual" (ngModelChange)="set('quantidadeEstoqueAtual', num($event))" placeholder="" />
+        @if (erro('quantidadeEstoqueAtual'); as m) { <small class="msg-erro">{{ m }}</small> }
+      </label>
+      <label class="campo" [class.invalido]="erro('quantidadeEstoqueMinimo')"><span>Estoque mínimo</span>
+        <input class="campo-input" type="number" min="0" step="1" data-campo="quantidadeEstoqueMinimo" [ngModel]="form().quantidadeEstoqueMinimo" (ngModelChange)="set('quantidadeEstoqueMinimo', num($event))" placeholder="" />
+        @if (erro('quantidadeEstoqueMinimo'); as m) { <small class="msg-erro">{{ m }}</small> }
+      </label>
+      <label class="campo" [class.invalido]="erro('quantidadeEstoqueMaximo')"><span>Estoque máximo</span>
+        <input class="campo-input" type="number" min="0" step="1" data-campo="quantidadeEstoqueMaximo" [ngModel]="form().quantidadeEstoqueMaximo" (ngModelChange)="set('quantidadeEstoqueMaximo', num($event))" placeholder="" />
+        @if (erro('quantidadeEstoqueMaximo'); as m) { <small class="msg-erro">{{ m }}</small> }
+      </label>
+    </div>
+    <h3 class="form-secao">Vitrine</h3>
+    <div class="form-grade">
+      <label class="campo" [class.invalido]="erro('rating')"><span>Avaliação (0–5)</span>
+        <input class="campo-input" type="number" min="0" step="0.1" data-campo="rating" [ngModel]="form().rating" (ngModelChange)="set('rating', num($event))" placeholder="" />
+        @if (erro('rating'); as m) { <small class="msg-erro">{{ m }}</small> }
+      </label>
+      <label class="campo" [class.invalido]="erro('qtdReviews')"><span>Qtd. avaliações</span>
+        <input class="campo-input" type="number" min="0" step="1" data-campo="qtdReviews" [ngModel]="form().qtdReviews" (ngModelChange)="set('qtdReviews', num($event))" placeholder="" />
+        @if (erro('qtdReviews'); as m) { <small class="msg-erro">{{ m }}</small> }
+      </label>
+      <label class="campo" [class.invalido]="erro('qtdVendidos')"><span>Qtd. vendidos</span>
+        <input class="campo-input" type="number" min="0" step="1" data-campo="qtdVendidos" [ngModel]="form().qtdVendidos" (ngModelChange)="set('qtdVendidos', num($event))" placeholder="" />
+        @if (erro('qtdVendidos'); as m) { <small class="msg-erro">{{ m }}</small> }
+      </label>
+      <label class="linha-switch"><span class="switch"><input type="checkbox" data-campo="full" [ngModel]="form().full" (ngModelChange)="set('full', $event)" /><span></span></span>Full</label>
+      <label class="linha-switch"><span class="switch"><input type="checkbox" data-campo="freteGratis" [ngModel]="form().freteGratis" (ngModelChange)="set('freteGratis', $event)" /><span></span></span>Frete grátis</label>
+    </div>
+    <div class="form-rodape">
+      <a class="btn btn-secundario" routerLink="/produtos">Cancelar</a>
+      <button class="btn btn-primario" type="button" data-acao="salvar" (click)="salvar()" [disabled]="salvando()">
+        <app-icone nome="check" [tamanho]="18" /> {{ salvando() ? 'Salvando...' : salvo() ? 'Salvar alterações' : 'Salvar produto' }}
+      </button>
+    </div>
+  </div>
+    }
+    @case ('imagens') {
+  <div class="cartao">
+    <div class="upload-linha">
+      <label class="btn btn-primario" [class.desabilitado]="cheio() || ocupadoImagens()">
+        <app-icone nome="mais" [tamanho]="18" /> Enviar imagens
+        <input type="file" accept="image/png,image/jpeg,image/gif,image/webp" multiple hidden data-campo="arquivo" [disabled]="cheio() || ocupadoImagens()" (change)="enviarArquivos($event)" />
+      </label>
+      <label class="campo"><span>Adicionar por URL</span>
+        <input class="campo-input" type="url" data-campo="urlImagem" placeholder="https://..." [ngModel]="urlNova()" (ngModelChange)="urlNova.set($event)" (keydown.enter)="adicionarUrl()" [disabled]="cheio() || ocupadoImagens()" />
+      </label>
+      <button class="btn btn-secundario" type="button" data-acao="adicionar-url" (click)="adicionarUrl()" [disabled]="cheio() || ocupadoImagens() || !urlNova().trim()">Importar URL</button>
+    </div>
+    <p class="nota">{{ imagens().length }} de {{ limite }} imagens.@if (cheio()) { Limite atingido: remova uma para adicionar outra. }</p>
+    @if (galeria().length === 0) {
+      <div class="estado-vazio"><app-icone nome="caixa" [tamanho]="36" /><h3>Sem imagens</h3><p>Envie arquivos ou importe por URL. A primeira vira a principal.</p></div>
+    } @else {
+      <div class="galeria-form">
+        @for (img of galeria(); track img.id) {
+          <div class="img-card" [class.principal]="img.principal" [attr.data-imagem]="img.id">
+            <div class="img-quadro">
+              @if (img.src) { <img [src]="img.src" alt="" loading="lazy" /> } @else { <app-icone nome="caixa" [tamanho]="32" /> }
+              @if (img.principal) { <span class="badge">Principal</span> }
+            </div>
+            @if (img.url) {
+              <div class="img-url">
+                <input type="text" readonly [value]="img.url" [title]="img.url" aria-label="URL de origem" />
+                <button class="btn-icone pequeno" type="button" title="Copiar URL" aria-label="Copiar URL" (click)="copiar(img.url)"><app-icone nome="cadastros" [tamanho]="14" /></button>
+                <a class="btn-icone pequeno" [href]="img.url" target="_blank" rel="noopener noreferrer" title="Abrir link" aria-label="Abrir link"><app-icone nome="seta" [tamanho]="14" /></a>
+              </div>
+            }
+            <div class="img-acoes">
+              @if (!img.principal) {
+                <button class="btn btn-secundario btn-sm" type="button" data-acao="principal" (click)="definirPrincipal(img)" [disabled]="ocupadoImagens()">Definir principal</button>
+              } @else { <small class="texto-suave">Imagem principal</small> }
+              <button class="btn-icone perigo" type="button" title="Remover" aria-label="Remover imagem" (click)="paraRemover.set(img)" [disabled]="ocupadoImagens()"><app-icone nome="lixeira" [tamanho]="18" /></button>
+            </div>
+          </div>
+        }
+      </div>
+    }
+  </div>
+    }
+    @case ('especificacoes') {
+  <div class="cartao">
+    <div class="spec-linha">
+      <input class="campo-input" type="text" data-campo="specChave" placeholder="Nome (ex.: Material)" maxlength="100" [ngModel]="novaChave()" (ngModelChange)="novaChave.set($event)" />
+      <input class="campo-input" type="text" data-campo="specValor" placeholder="Valor (ex.: Algodão)" maxlength="500" [ngModel]="novoValor()" (ngModelChange)="novoValor.set($event)" (keydown.enter)="adicionarSpec()" />
+      <button class="btn btn-primario" type="button" data-acao="adicionar-spec" (click)="adicionarSpec()"><app-icone nome="mais" [tamanho]="18" /> Adicionar</button>
+    </div>
+    @for (s of specs(); track s.id) {
+      <div class="spec-linha" [attr.data-spec]="s.id">
+        @if (editandoSpec() === s.id) {
+          <input class="campo-input" type="text" [ngModel]="editChave()" (ngModelChange)="editChave.set($event)" aria-label="Nome" />
+          <input class="campo-input" type="text" [ngModel]="editValor()" (ngModelChange)="editValor.set($event)" (keydown.enter)="salvarSpec(s)" aria-label="Valor" />
+          <div>
+            <button class="btn-icone" type="button" title="Salvar" aria-label="Salvar" (click)="salvarSpec(s)"><app-icone nome="check" [tamanho]="18" /></button>
+            <button class="btn-icone" type="button" title="Cancelar" aria-label="Cancelar" (click)="editandoSpec.set(null)"><app-icone nome="fechar" [tamanho]="18" /></button>
+          </div>
+        } @else {
+          <strong>{{ s.chave }}</strong>
+          <span>{{ s.valor || '—' }}</span>
+          <div>
+            <button class="btn-icone" type="button" title="Editar" aria-label="Editar" (click)="editarSpec(s)"><app-icone nome="editar" [tamanho]="18" /></button>
+            <button class="btn-icone perigo" type="button" title="Remover" aria-label="Remover" (click)="removerSpec(s)"><app-icone nome="lixeira" [tamanho]="18" /></button>
+          </div>
+        }
+      </div>
+    } @empty {
+      <p class="texto-suave">Nenhuma especificação cadastrada.</p>
+    }
+  </div>
+    }
+  }
+}
+
+@if (paraRemover(); as img) {
+  <div class="overlay" (click)="!ocupadoImagens() && paraRemover.set(null)"></div>
+  <div class="modal" role="alertdialog" aria-modal="true" aria-labelledby="titulo-remover-imagem">
+    <div class="modal-icone"><app-icone nome="lixeira" [tamanho]="22" /></div>
+    <h2 id="titulo-remover-imagem">Remover imagem?</h2>
+    <p>A imagem será removida do produto.@if (img.principal) { Ela é a principal atual. }</p>
+    <div class="modal-acoes">
+      <button class="btn btn-secundario" type="button" (click)="paraRemover.set(null)" [disabled]="ocupadoImagens()">Cancelar</button>
+      <button class="btn btn-perigo" type="button" data-acao="confirmar-remocao" (click)="confirmarRemocao()" [disabled]="ocupadoImagens()">Remover</button>
+    </div>
+  </div>
+}

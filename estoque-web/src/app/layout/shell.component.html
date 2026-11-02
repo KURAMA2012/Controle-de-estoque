@@ -1,0 +1,73 @@
+<div class="shell" [class.recolhida]="recolhida() && !movel()" [class.movel]="movel()" [class.menu-aberto]="menuMovel()">
+  @if (movel() && menuMovel()) { <div class="overlay overlay-menu" (click)="fecharMenuMovel()"></div> }
+  <aside class="sidebar" id="sidebar" [attr.aria-hidden]="movel() && !menuMovel() ? 'true' : null">
+    <div class="marca">
+      <span class="logo"><app-icone nome="caixa" [tamanho]="22" /></span>
+      <span class="rotulo nome-app">Estoque</span>
+    </div>
+
+    <nav>
+      @for (i of principais; track i.rota) {
+        <a [routerLink]="i.rota" routerLinkActive="ativo" [title]="i.rotulo">
+          <app-icone [nome]="i.icone" />
+          <span class="rotulo">{{ i.rotulo }}</span>
+        </a>
+      }
+
+      <div class="secao"><span class="rotulo">Cadastros</span></div>
+      @for (i of cadastros; track i.rota) {
+        <a [routerLink]="i.rota" routerLinkActive="ativo" [title]="i.rotulo">
+          <app-icone [nome]="i.icone" />
+          <span class="rotulo">{{ i.rotulo }}</span>
+        </a>
+      }
+    </nav>
+  </aside>
+
+  <div class="principal">
+    <header class="topbar">
+      <button class="btn-icone btn-hamburguer" type="button" (click)="alternarSidebar()" aria-controls="sidebar"
+        [attr.aria-expanded]="movel() ? menuMovel() : !recolhida()"
+        [attr.aria-label]="movel() ? (menuMovel() ? 'Fechar menu' : 'Abrir menu') : recolhida() ? 'Expandir menu' : 'Recolher menu'">
+        <app-icone nome="menu" />
+      </button>
+
+      <form class="busca" (ngSubmit)="buscar()">
+        <app-icone nome="busca" [tamanho]="18" />
+        <input type="search" name="busca" [(ngModel)]="busca" placeholder="Buscar produtos..." aria-label="Buscar produtos" />
+      </form>
+
+      <div class="acoes">
+        <button class="btn-icone" type="button" (click)="tema.alternar()"
+          [attr.aria-label]="tema.tema() === 'escuro' ? 'Usar tema claro' : 'Usar tema escuro'"
+          [title]="tema.tema() === 'escuro' ? 'Tema claro' : 'Tema escuro'">
+          <app-icone [nome]="tema.tema() === 'escuro' ? 'sol' : 'lua'" />
+        </button>
+
+        <div class="menu-usuario">
+          <button class="avatar-btn" type="button" (click)="menuUsuarioAberto.set(!menuUsuarioAberto())"
+            aria-haspopup="menu" [attr.aria-expanded]="menuUsuarioAberto()">
+            <span class="avatar">{{ iniciais() }}</span>
+            <span class="nome-usuario">{{ auth.usuario()?.nome || auth.usuario()?.login }}</span>
+          </button>
+          @if (menuUsuarioAberto()) {
+            <div class="dropdown" role="menu">
+              <div class="dropdown-cab">
+                <strong>{{ auth.usuario()?.nome }}</strong>
+                <small>{{ auth.usuario()?.login }} · {{ auth.usuario()?.perfil }}</small>
+              </div>
+              <button type="button" role="menuitem" (click)="auth.logout()">
+                <app-icone nome="sair" [tamanho]="18" /> Sair
+              </button>
+            </div>
+          }
+        </div>
+      </div>
+    </header>
+
+    <main class="conteudo">
+      <router-outlet />
+    </main>
+    <app-toasts />
+  </div>
+</div>

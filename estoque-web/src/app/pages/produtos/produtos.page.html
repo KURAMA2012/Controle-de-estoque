@@ -1,0 +1,343 @@
+<div class="cabecalho-pagina">
+  <div>
+    <h1>Produtos</h1>
+    <p class="sub">
+      @if (!carregando() && resultado()) { {{ resumo() }} · } {{ atual().rotulo }} — {{ atual().descricao }}
+      @if (q()) { · busca: "{{ q() }}" }
+    </p>
+  </div>
+  <div class="acoes-cabecalho">
+    <app-view-switcher />
+    <a class="btn btn-primario" routerLink="/produtos/novo"><app-icone nome="mais" [tamanho]="18" /> Novo Produto</a>
+  </div>
+</div>
+
+<!-- Barra comum: busca, (categoria, marca, status fora do modo cards), ordenação -->
+<div class="cartao barra-filtros barra-produtos">
+  <label class="busca busca-local">
+    <app-icone nome="busca" [tamanho]="18" />
+    <input type="search" [ngModel]="busca()" (ngModelChange)="alterar(busca, $event)" placeholder="Buscar por nome..." aria-label="Buscar produtos por nome" />
+  </label>
+  @if (vm.modo() !== 'cards') {
+    <select class="select" [ngModel]="categoria()" (ngModelChange)="alterar(categoria, $event)" aria-label="Filtrar por categoria">
+      <option [ngValue]="null">Todas as categorias</option>
+      @for (c of categorias(); track c.id) { <option [ngValue]="c.id">{{ c.descricao }}</option> }
+    </select>
+    <select class="select" [ngModel]="marca()" (ngModelChange)="alterar(marca, $event)" aria-label="Filtrar por marca">
+      <option [ngValue]="null">Todas as marcas</option>
+      @for (m of marcas(); track m.id) { <option [ngValue]="m.id">{{ m.descricao }}</option> }
+    </select>
+    <div class="segmentado" role="radiogroup" aria-label="Filtrar por status">
+      @for (s of [['todos', 'Todos'], ['ativos', 'Ativos'], ['inativos', 'Inativos']]; track s[0]) {
+        <button type="button" role="radio" [class.ativo]="status() === s[0]" [attr.aria-checked]="status() === s[0]"
+          (click)="alterar(status, $any(s[0]))">{{ s[1] }}</button>
+      }
+    </div>
+  }
+  <label class="ordem">
+    <span class="texto-suave">Ordenar</span>
+    <select class="select" [ngModel]="ordem()" (ngModelChange)="selecionarOrdem($event)" aria-label="Ordenar por">
+      @for (o of ordens; track o.valor) { <option [ngValue]="o.valor">{{ o.rotulo }}</option> }
+    </select>
+  </label>
+  <button class="btn-icone btn-direcao" type="button" data-testid="direcao" (click)="alternarDirecao()"
+    [title]="direcao() === 'asc' ? 'Crescente (clique para decrescente)' : 'Decrescente (clique para crescente)'"
+    [attr.aria-label]="direcao() === 'asc' ? 'Ordem crescente' : 'Ordem decrescente'">
+    <span class="seta-direcao" [class.desc]="direcao() === 'desc'">{{ direcao() === 'asc' ? '↑' : '↓' }}</span>
+  </button>
+  <button class="btn-icone" type="button" title="Recarregar" aria-label="Recarregar" (click)="recarregar()">
+    <app-icone nome="recarregar" [tamanho]="18" />
+  </button>
+</div>
+
+<ng-template #estados>
+  @if (carregando()) {
+    <div class="lista-carregando" aria-busy="true">
+      @for (i of [1, 2, 3, 4, 5, 6]; track i) {
+        <div class="skeleton-linha"><span class="skeleton thumb-sk"></span><span class="skeleton" style="width: 45%"></span><span class="skeleton" style="width: 80px"></span></div>
+      }
+    </div>
+  } @else if (erro()) {
+    <div class="estado-vazio">
+      <app-icone nome="alerta" [tamanho]="36" />
+      <h3>Erro ao carregar</h3>
+      <p>{{ erro() }}</p>
+      <button class="btn btn-secundario" type="button" (click)="recarregar()">Tentar novamente</button>
+    </div>
+  } @else {
+    <div class="estado-vazio">
+      <app-icone nome="produtos" [tamanho]="36" />
+      @if (algumFiltro()) {
+        <h3>Nenhum produto encontrado</h3>
+        <p>Nenhum produto corresponde aos filtros{{ filtroLocalAtivo() ? ' (cor, tamanho e preço filtram só a página atual)' : '' }}.</p>
+        <button class="btn btn-secundario" type="button" (click)="limparFiltros()">Limpar filtros</button>
+      } @else {
+        <h3>Nenhum produto cadastrado</h3>
+        <p>Comece cadastrando o primeiro produto.</p>
+        <a class="btn btn-primario" routerLink="/produtos/novo"><app-icone nome="mais" [tamanho]="18" /> Novo Produto</a>
+      }
+    </div>
+  }
+</ng-template>
+
+<ng-template #paginacao>
+  @if (!carregando() && resultado() && (pagina() > 0 || temProxima() || itens().length)) {
+    <div class="paginacao">
+      <span class="texto-suave">
+        Página {{ pagina() + 1 }}@if (totalPaginas()) { de {{ totalPaginas() }} }
+      </span>
+      <div class="paginacao-acoes">
+        <select class="select select-sm" [ngModel]="tamanho()" (ngModelChange)="alterar(tamanho, $event)" aria-label="Itens por página">
+          @for (t of tamanhosPagina; track t) { <option [ngValue]="t">{{ t }} por página</option> }
+        </select>
+        <button class="btn btn-secundario btn-sm" type="button" [disabled]="pagina() === 0" (click)="irPara(pagina() - 1)">Anterior</button>
+        <button class="btn btn-secundario btn-sm" type="button" [disabled]="!temProxima()" (click)="irPara(pagina() + 1)">Próxima</button>
+      </div>
+    </div>
+  }
+</ng-template>
+
+@switch (vm.modo()) {
+  <!-- ===== A: Tabela ===== -->
+  @case ('tabela') {
+    <div class="cartao sem-padding">
+      @if (carregando() || erro() || itens().length === 0) {
+        <ng-container [ngTemplateOutlet]="estados" />
+      } @else {
+        <div class="tabela-wrap">
+          <table class="tabela tabela-produtos">
+            <thead>
+              <tr>
+                <th class="col-thumb"><span class="sr-only">Foto</span></th>
+                <th><button type="button" class="th-ordem" [class.ativo]="ordem() === 'nome'" (click)="ordenar('nome')">Nome@if (ordem() === 'nome') { <span class="seta-direcao">{{ direcao() === 'asc' ? '↑' : '↓' }}</span> }</button></th>
+                <th class="ocultar-md">SKU</th>
+                <th class="ocultar-sm">Categoria</th>
+                <th class="ocultar-sm">Marca</th>
+                <th class="num"><button type="button" class="th-ordem" [class.ativo]="ordem() === 'valorVenda'" (click)="ordenar('valorVenda')">Preço@if (ordem() === 'valorVenda') { <span class="seta-direcao">{{ direcao() === 'asc' ? '↑' : '↓' }}</span> }</button></th>
+                <th class="num"><button type="button" class="th-ordem" [class.ativo]="ordem() === 'quantidadeEstoqueAtual'" (click)="ordenar('quantidadeEstoqueAtual')">Estoque@if (ordem() === 'quantidadeEstoqueAtual') { <span class="seta-direcao">{{ direcao() === 'asc' ? '↑' : '↓' }}</span> }</button></th>
+                <th class="col-status">Status</th>
+                <th class="col-acoes"><span class="sr-only">Ações</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (it of itens(); track it.id) {
+                <tr>
+                  <td class="col-thumb">
+                    <app-thumb [idItem]="it.id" [possui]="it.possuiImagem" [versao]="it.versaoImagem" [tamanhoIcone]="20" />
+                  </td>
+                  <td><button type="button" class="link" (click)="editar(it)">{{ it.nome }}</button></td>
+                  <td class="ocultar-md mono">{{ it.codigoBarras || it.codigoFornecedor || '—' }}</td>
+                  <td class="ocultar-sm">{{ it.idCategoria?.descricao || '—' }}</td>
+                  <td class="ocultar-sm">{{ it.idMarca?.descricao || '—' }}</td>
+                  <td class="num">{{ preco(it.valorVenda) }}</td>
+                  <td class="num"><span class="estoque" [attr.data-nivel]="nivel(it)">{{ rotuloEstoque(it) }}</span></td>
+                  <td class="col-status"><span class="badge" [class.badge-sucesso]="it.ativo" [class.badge-neutro]="!it.ativo">{{ it.ativo ? 'Ativo' : 'Inativo' }}</span></td>
+                  <td class="col-acoes">
+                    <button class="btn-icone" type="button" title="Detalhar" data-acao="detalhar" [attr.aria-label]="'Detalhar ' + it.nome" (click)="detalhar(it)"><app-icone nome="olho" [tamanho]="18" /></button>
+                    <button class="btn-icone" type="button" title="Editar" [attr.aria-label]="'Editar ' + it.nome" (click)="editar(it)"><app-icone nome="editar" [tamanho]="18" /></button>
+                    <button class="btn-icone perigo" type="button" title="Excluir" [attr.aria-label]="'Excluir ' + it.nome" (click)="paraExcluir.set(it)"><app-icone nome="lixeira" [tamanho]="18" /></button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+      <ng-container [ngTemplateOutlet]="paginacao" />
+    </div>
+  }
+
+  <!-- ===== B: Cards ===== -->
+  @case ('cards') {
+    <div class="produtos-cards">
+      <aside class="cartao painel-filtros" aria-label="Filtros">
+        <div class="painel-cab"><h3>Filtros</h3>
+          @if (algumFiltro()) { <button type="button" class="link" (click)="limparFiltros()">Limpar</button> }
+        </div>
+        <label class="campo"><span>Categoria</span>
+          <select class="select" [ngModel]="categoria()" (ngModelChange)="alterar(categoria, $event)">
+            <option [ngValue]="null">Todas</option>
+            @for (c of categorias(); track c.id) { <option [ngValue]="c.id">{{ c.descricao }}</option> }
+          </select>
+        </label>
+        <label class="campo"><span>Marca</span>
+          <select class="select" [ngModel]="marca()" (ngModelChange)="alterar(marca, $event)">
+            <option [ngValue]="null">Todas</option>
+            @for (m of marcas(); track m.id) { <option [ngValue]="m.id">{{ m.descricao }}</option> }
+          </select>
+        </label>
+        <label class="campo"><span>Status</span>
+          <select class="select" [ngModel]="status()" (ngModelChange)="alterar(status, $event)">
+            <option value="todos">Todos</option><option value="ativos">Ativos</option><option value="inativos">Inativos</option>
+          </select>
+        </label>
+        <hr />
+        <label class="campo"><span>Cor</span>
+          <select class="select" [ngModel]="cor()" (ngModelChange)="cor.set($event)">
+            <option [ngValue]="null">Todas</option>
+            @for (c of cores(); track c.id) { <option [ngValue]="c.id">{{ c.descricao }}</option> }
+          </select>
+        </label>
+        <label class="campo"><span>Tamanho</span>
+          <select class="select" [ngModel]="tamanhoProduto()" (ngModelChange)="tamanhoProduto.set($event)">
+            <option [ngValue]="null">Todos</option>
+            @for (t of tamanhos(); track t.id) { <option [ngValue]="t.id">{{ t.descricao }}</option> }
+          </select>
+        </label>
+        <div class="campo"><span>Faixa de preço (R$)</span>
+          <div class="faixa">
+            <input type="number" min="0" placeholder="Mín." aria-label="Preço mínimo" [ngModel]="precoMin()" (ngModelChange)="precoMin.set(numero($event))" />
+            <input type="number" min="0" placeholder="Máx." aria-label="Preço máximo" [ngModel]="precoMax()" (ngModelChange)="precoMax.set(numero($event))" />
+          </div>
+        </div>
+        <p class="nota">Cor, tamanho e preço filtram apenas a página atual (a API ainda não suporta esses filtros).</p>
+      </aside>
+
+      <section class="grade-area">
+        @if (carregando() || erro() || itens().length === 0) {
+          <div class="cartao sem-padding"><ng-container [ngTemplateOutlet]="estados" /></div>
+        } @else {
+          <div class="grade-cards">
+            @for (it of itens(); track it.id) {
+              <article class="cartao card-produto" [class.inativo]="!it.ativo">
+                <button type="button" class="card-foto" (click)="editar(it)" [attr.aria-label]="'Abrir ' + it.nome">
+                  <app-thumb [idItem]="it.id" [possui]="it.possuiImagem" [versao]="it.versaoImagem" classe="card-img" [tamanhoIcone]="40" />
+                  @if (!it.ativo) { <span class="badge badge-neutro card-tag">Inativo</span> }
+                </button>
+                <div class="card-corpo">
+                  <small class="texto-suave">{{ it.idMarca?.descricao || 'Sem marca' }}</small>
+                  <h3 [title]="it.nome">{{ it.nome }}</h3>
+                  <div class="card-linha">
+                    <strong class="preco">{{ preco(it.valorVenda) }}</strong>
+                    <span class="estoque" [attr.data-nivel]="nivel(it)">{{ rotuloEstoque(it) }}</span>
+                  </div>
+                </div>
+                <div class="card-acoes">
+                  <button class="btn-icone" type="button" title="Detalhar" data-acao="detalhar" [attr.aria-label]="'Detalhar ' + it.nome" (click)="detalhar(it)"><app-icone nome="olho" [tamanho]="18" /></button>
+                  <button class="btn btn-secundario btn-sm" type="button" (click)="editar(it)"><app-icone nome="editar" [tamanho]="16" /> Editar</button>
+                  <button class="btn-icone perigo" type="button" title="Excluir" [attr.aria-label]="'Excluir ' + it.nome" (click)="paraExcluir.set(it)"><app-icone nome="lixeira" [tamanho]="18" /></button>
+                </div>
+              </article>
+            }
+          </div>
+        }
+        <div class="cartao sem-padding"><ng-container [ngTemplateOutlet]="paginacao" /></div>
+      </section>
+    </div>
+  }
+
+  <!-- ===== C: Detalhe ===== -->
+  @case ('detalhe') {
+    <div class="kpis">
+      <div class="cartao kpi"><app-icone nome="caixa" /><div><small>Total de produtos</small><strong>{{ kpis() ? kpis()!.total : '…' }}</strong></div></div>
+      <div class="cartao kpi alerta"><app-icone nome="alerta" /><div><small>Sem estoque</small><strong>{{ kpis() ? kpis()!.semEstoque : '…' }}</strong></div></div>
+      <div class="cartao kpi sucesso"><app-icone nome="dinheiro" /><div><small>Valor em estoque (venda)</small><strong>{{ kpis() ? preco(kpis()!.valor) : '…' }}</strong></div></div>
+    </div>
+    @if (kpis()?.parcial) { <p class="nota">Indicadores calculados sobre os primeiros 1000 produtos.</p> }
+
+    <div class="produtos-split">
+      <div class="cartao sem-padding lista-compacta-wrap">
+        @if (carregando() || erro() || itens().length === 0) {
+          <ng-container [ngTemplateOutlet]="estados" />
+        } @else {
+          <ul class="lista-compacta" role="listbox" aria-label="Produtos">
+            @for (it of itens(); track it.id) {
+              <li>
+                <button type="button" role="option" [class.ativo]="selecionado()?.id === it.id" [attr.aria-selected]="selecionado()?.id === it.id" (click)="selecionarDetalhe(it.id)">
+                  <app-thumb [idItem]="it.id" [possui]="it.possuiImagem" [versao]="it.versaoImagem" [tamanhoIcone]="20" />
+                  <span class="lc-texto"><strong>{{ it.nome }}</strong><small class="texto-suave">{{ it.idMarca?.descricao || '—' }} · {{ preco(it.valorVenda) }}</small></span>
+                  <span class="estoque" [attr.data-nivel]="nivel(it)">{{ it.quantidadeEstoqueAtual ?? 0 }}</span>
+                </button>
+              </li>
+            }
+          </ul>
+        }
+        <ng-container [ngTemplateOutlet]="paginacao" />
+      </div>
+
+      <div class="cartao painel-detalhe">
+        @if (selecionado(); as it) {
+          <div class="det-topo">
+            <div class="galeria">
+              <div class="foto-principal">
+                @if (fotoAtual()?.src; as src) { <img [src]="src" [alt]="it.nome" /> } @else { <app-thumb [idItem]="it.id" [possui]="it.possuiImagem" [versao]="it.versaoImagem" classe="foto-fallback" [tamanhoIcone]="56" /> }
+              </div>
+              @if (fotos().length > 1) {
+                <div class="miniaturas">
+                  @for (f of fotos(); track f.id) {
+                    <button type="button" [class.ativo]="fotoAtual()?.id === f.id" (click)="fotoId.set(f.id)" [attr.aria-label]="'Foto ' + ($index + 1)">
+                      <img [src]="f.src" alt="" loading="lazy" />
+                    </button>
+                  }
+                </div>
+              }
+            </div>
+            <div class="det-info">
+              <div class="det-cab">
+                <div>
+                  <small class="texto-suave">{{ it.idCategoria?.descricao || 'Sem categoria' }}</small>
+                  <h2>{{ it.nome }}</h2>
+                  @if (it.codigoBarras) { <small class="mono texto-suave">SKU {{ it.codigoBarras }}</small> }
+                </div>
+                <span class="badge" [class.badge-sucesso]="it.ativo" [class.badge-neutro]="!it.ativo">{{ it.ativo ? 'Ativo' : 'Inativo' }}</span>
+              </div>
+              <div class="det-preco">
+                <strong>{{ preco(it.valorVenda) }}</strong>
+                @if (it.precoAntigo) { <s class="texto-suave">{{ preco(it.precoAntigo) }}</s> }
+              </div>
+              <dl class="det-dados">
+                <div><dt>Estoque</dt><dd><span class="estoque" [attr.data-nivel]="nivel(it)">{{ rotuloEstoque(it) }}</span>
+                  @if (it.quantidadeEstoqueMinimo != null) { <small class="texto-suave"> mín. {{ it.quantidadeEstoqueMinimo }}</small> }</dd></div>
+                <div><dt>Marca</dt><dd>{{ it.idMarca?.descricao || '—' }}@if (it.idModelo) { · {{ it.idModelo.descricao }} }</dd></div>
+                <div><dt>Categoria</dt><dd>{{ it.idCategoria?.descricao || '—' }}</dd></div>
+                @if (it.valorCusto != null) { <div><dt>Custo</dt><dd>{{ preco(it.valorCusto) }}</dd></div> }
+              </dl>
+              @if (it.cores?.length) {
+                <div class="chips"><span class="chips-rotulo">Cores</span>@for (c of it.cores; track c.id) { <span class="chip">{{ c.descricao }}</span> }</div>
+              }
+              @if (it.tamanhos?.length) {
+                <div class="chips"><span class="chips-rotulo">Tamanhos</span>@for (t of it.tamanhos; track t.id) { <span class="chip">{{ t.descricao }}</span> }</div>
+              }
+              <div class="det-acoes">
+                <button class="btn btn-primario" type="button" (click)="editar(it)"><app-icone nome="editar" [tamanho]="18" /> Editar</button>
+                <button class="btn btn-perigo" type="button" (click)="paraExcluir.set(it)"><app-icone nome="lixeira" [tamanho]="18" /> Excluir</button>
+              </div>
+            </div>
+          </div>
+
+          @if (it.descricao) { <p class="det-descricao">{{ it.descricao }}</p> }
+
+          <h3 class="det-secao">Especificações</h3>
+          @if (detalhe().carregando) {
+            <div class="lista-carregando"><div class="skeleton-linha"><span class="skeleton" style="width: 60%"></span></div></div>
+          } @else if (detalhe().erro) {
+            <p class="erro">{{ detalhe().erro }}</p>
+          } @else if (detalhe().especificacoes.length === 0) {
+            <p class="texto-suave">Nenhuma especificação cadastrada.</p>
+          } @else {
+            <table class="tabela tabela-specs">
+              <tbody>
+                @for (e of detalhe().especificacoes; track e.id) { <tr><th>{{ e.chave }}</th><td>{{ e.valor || '—' }}</td></tr> }
+              </tbody>
+            </table>
+          }
+        } @else if (!carregando()) {
+          <div class="estado-vazio"><app-icone nome="split" [tamanho]="36" /><h3>Selecione um produto</h3><p>Os detalhes aparecem aqui.</p></div>
+        }
+      </div>
+    </div>
+  }
+}
+
+@if (paraExcluir(); as it) {
+  <div class="overlay" (click)="!excluindo() && paraExcluir.set(null)"></div>
+  <div class="modal" role="alertdialog" aria-modal="true" aria-labelledby="titulo-excluir-produto">
+    <div class="modal-icone"><app-icone nome="lixeira" [tamanho]="22" /></div>
+    <h2 id="titulo-excluir-produto">Excluir produto?</h2>
+    <p>"{{ it.nome }}" será removido permanentemente. Esta ação não pode ser desfeita.</p>
+    <div class="modal-acoes">
+      <button class="btn btn-secundario" type="button" (click)="paraExcluir.set(null)" [disabled]="excluindo()">Cancelar</button>
+      <button class="btn btn-perigo" type="button" (click)="excluir()" [disabled]="excluindo()">{{ excluindo() ? 'Excluindo...' : 'Excluir' }}</button>
+    </div>
+  </div>
+}

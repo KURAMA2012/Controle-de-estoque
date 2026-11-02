@@ -1,0 +1,54 @@
+# Blueprint do Render (https://render.com/docs/blueprint-spec)
+# Cria: Postgres gratuito + API (Docker) + front (Docker).
+# Variaveis com "sync: false" sao pedidas no painel ao aplicar o Blueprint.
+databases:
+  - name: estoque-db
+    plan: free
+    databaseName: estoque
+    user: estoque
+
+services:
+  - type: web
+    name: estoque-api
+    runtime: docker
+    plan: free
+    rootDir: estoque-api
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/estoque/actuator/health
+    envVars:
+      - key: DB_HOST
+        fromDatabase: { name: estoque-db, property: host }
+      - key: DB_PORT
+        fromDatabase: { name: estoque-db, property: port }
+      - key: DB_NAME
+        fromDatabase: { name: estoque-db, property: database }
+      - key: DB_USER
+        fromDatabase: { name: estoque-db, property: user }
+      - key: DB_PASSWORD
+        fromDatabase: { name: estoque-db, property: password }
+      - key: JWT_SECRET
+        generateValue: true
+      - key: APP_ADMIN_LOGIN
+        value: demo
+      - key: APP_ADMIN_SENHA
+        sync: false
+      - key: APP_CORS_ALLOWED_ORIGINS
+        sync: false   # ex.: https://estoque-web.onrender.com
+      - key: LOG_FILE
+        value: /tmp/estoque-api.log
+      - key: JAVA_OPTS
+        value: -Xms128m -Xmx384m
+
+  - type: web
+    name: estoque-web
+    runtime: docker
+    plan: free
+    rootDir: estoque-web
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: API_URL
+        sync: false   # ex.: https://estoque-api.onrender.com/api/estoque
+      - key: DEMO_LOGIN
+        value: demo
+      - key: DEMO_SENHA
+        sync: false   # mesma senha de APP_ADMIN_SENHA (fica visivel na tela de login)

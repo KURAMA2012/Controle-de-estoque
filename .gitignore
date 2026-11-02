@@ -1,0 +1,46 @@
+# ===== Env / secrets (todo o repo) =====
+.env
+.env.*
+!.env.example
+
+# ===== estoque-api (Java / Maven) =====
+estoque-api/target/
+estoque-api/pom.xml.tag
+estoque-api/pom.xml.releaseBackup
+estoque-api/pom.xml.versionsBackup
+estoque-api/release.properties
+estoque-api/dependency-reduced-pom.xml
+estoque-api/.mvn/wrapper/maven-wrapper.jar
+estoque-api/bin/
+estoque-api/out/
+estoque-api/.classpath
+estoque-api/.project
+estoque-api/.settings/
+estoque-api/.metadata/
+*.class
+hs_err_pid*
+
+# ===== estoque-web (Node / Angular) =====
+estoque-web/node_modules/
+estoque-web/dist/
+estoque-web/.angular/
+estoque-web/coverage/
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# ===== IDEs =====
+.idea/
+*.iml
+.vscode/
+
+# ===== Logs =====
+*.log
+logs/
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+
+# ===== Logs =====
+*.log
